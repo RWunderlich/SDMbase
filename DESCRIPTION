@@ -1,0 +1,15 @@
+Package: SDMbase
+Type: Package
+Title: SDM package blah blah
+Version: 0.1
+Date: 2016-02-26
+Author: Wong Jin Yung, Rainer Wunderlich
+Maintainer: Rainer Wunderlich <rainer.wunderlich@gmail.com>
+Description: Blah Blah
+License: GPL(>= 2)
+Depends:
+    R(>= 3.0.0)
+Imports:
+    glcm
+LazyLoad: yes
+URL: https://github.com/jinyung/SDMbase
