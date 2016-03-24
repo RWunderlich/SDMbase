@@ -126,10 +126,10 @@ projectextent=c(60,110,8.5,46), projectpextent=c(), pathlocations="/home/affu/De
       }
     for (i in (10:19))
       {
-      write.asciigrid(x = layerstack[i], file = "./projection/bio,i,\.asc", na.value = -9999)
+      write.asciigrid(x = playerstack[i], file = "./projection/bio,i,\.asc", na.value = -9999)
       }
-    write.asciigrid(x = layerstack[20], file = "./projection/topo_Elevation.asc", na.value = -9999)
-    write.asciigrid(x = layerstack[21], file = "./projection/topo_Slope.asc", na.value = -9999)
-    write.asciigrid(x = layerstack[22], file = "./projection/topo_Aspect.asc", na.value = -9999)
+    write.asciigrid(x = playerstack[20], file = "./projection/topo_Elevation.asc", na.value = -9999)
+    write.asciigrid(x = playerstack[21], file = "./projection/topo_Slope.asc", na.value = -9999)
+    write.asciigrid(x = playerstack[22], file = "./projection/topo_Aspect.asc", na.value = -9999)
     }
   }
