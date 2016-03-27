@@ -4,7 +4,7 @@ run <- function(pathmaxent="/home/affu/Desktop/Maxent/", pathproject="/home/affu
 pathlayers="/home/affu/Desktop/Layers/", pathplayers="/home/affu/Desktop/Layers/Players", inputfiles="asc",
 dobgmanip=FALSE, updownbgmanip=0, levelbgmanip=300, inputCRS=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0"),
 outputCRS=CRS("+init=epsg:3975 +proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"),
-projectextent=c(60,110,8.5,46), projectpextent=c(), pathlocations="/home/affu/Desktop/Locations/")
+projectextent=c(60,110,8.5,46), projectpextent=c(60,110,8.5,46), pathlocations="/home/affu/Desktop/Locations/")
   {
   # Creating project folder structure
   setwd(dir = pathproject)
@@ -30,7 +30,7 @@ projectextent=c(60,110,8.5,46), projectpextent=c(), pathlocations="/home/affu/De
   layerfnames <- c(list.files(path = ".", pattern = "^bio.*\\.asc"), "topo_Elevation.asc")
   layerstack <- stack()
   NAvalue(layerstack) <- -9999
-  for (i in 1:(length(layerfnames)-1)
+  for (i in 1:(length(layerfnames)-1))
     {
     layerstack[i] <- projectRaster(crop(x = raster(layerfnames[i], crs = inputCRS), y = projectextent), crs = outputCRS)
     }
@@ -55,7 +55,7 @@ projectextent=c(60,110,8.5,46), projectpextent=c(), pathlocations="/home/affu/De
     playerfnames <- c(list.files(path = ".", pattern = "^bio.*\\.asc"), "topo_Elevation.asc")
     playerstack <- stack()
     NAvalue(playerstack) <- -9999
-    for (i in 1:(length(playerfnames)-1)
+    for (i in 1:(length(playerfnames)-1))
       {
       playerstack[i] <- projectRaster(crop(x = raster(playerfnames[i], crs = inputCRS), y = projectpextent), crs = outputCRS)
       }
@@ -73,9 +73,9 @@ projectextent=c(60,110,8.5,46), projectpextent=c(), pathlocations="/home/affu/De
     }
 
   # Background manipulation if required
-  if dobgmanip==TRUE
+  if (dobgmanip==TRUE)
     {
-    for (i in 1:(length(layerstack))
+    for (i in 1:(length(layerstack)))
       {
       if (updownbgmanip == 0)
         {
@@ -107,11 +107,11 @@ projectextent=c(60,110,8.5,46), projectpextent=c(), pathlocations="/home/affu/De
   write.csv(x = projectlocations, file = "./locations/locations.csv", sep = ",")
   for (i in (1:9))
     {
-    write.asciigrid(x = layerstack[i], file = "./layers/bio0,i,\.asc", na.value = -9999)
+    write.asciigrid(x = layerstack[i], file = "./layers/bio0,i,.asc", na.value = -9999)
     }
   for (i in (10:19))
     {
-    write.asciigrid(x = layerstack[i], file = "./layers/bio,i,\.asc", na.value = -9999)
+    write.asciigrid(x = layerstack[i], file = "./layers/bio,i,.asc", na.value = -9999)
     }
   write.asciigrid(x = layerstack[20], file = "./layers/topo_Elevation.asc", na.value = -9999)
   write.asciigrid(x = layerstack[21], file = "./layers/topo_Slope.asc", na.value = -9999)
@@ -122,11 +122,11 @@ projectextent=c(60,110,8.5,46), projectpextent=c(), pathlocations="/home/affu/De
     {
     for (i in (1:9))
       {
-      write.asciigrid(x = playerstack[i], file = "./projection/bio0,i,\.asc", na.value = -9999)
+      write.asciigrid(x = playerstack[i], file = "./projection/bio0,i,.asc", na.value = -9999)
       }
     for (i in (10:19))
       {
-      write.asciigrid(x = playerstack[i], file = "./projection/bio,i,\.asc", na.value = -9999)
+      write.asciigrid(x = playerstack[i], file = "./projection/bio,i,.asc", na.value = -9999)
       }
     write.asciigrid(x = playerstack[20], file = "./projection/topo_Elevation.asc", na.value = -9999)
     write.asciigrid(x = playerstack[21], file = "./projection/topo_Slope.asc", na.value = -9999)
