@@ -1,11 +1,15 @@
 require(sp)
 require(raster)
 require(rgdal)
+require(ROCR)
+require(vcd)
+require(boot)
 run <- function(pathmaxent="/home/affu/Desktop/Maxent/", pathproject="/home/affu/Desktop/example/", doproject=0,
 pathlayers="/home/affu/Desktop/Layers/", pathplayers="/home/affu/Desktop/Layers/Players", inputfiles="asc",
 dobgmanip=FALSE, updownbgmanip=0, levelbgmanip=300, inputCRSdef="+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0",
 outputCRSdef="+init=epsg:3975 +proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0",
-projectextent=c(60,110,8.5,46), projectpextent=c(60,110,8.5,46), pathlocations="/home/affu/Desktop/Locations/", CORly = TRUE)
+projectextent=c(60,110,8.5,46), projectpextent=c(60,110,8.5,46), pathlocations="/home/affu/Desktop/Locations/", CORly = TRUE,
+calcAUC = TRUE, AUCbootstrapITER = 10)
   {
   inputCRS=CRS(inputCRSdef)
   outputCRS=CRS(outputCRSdef)
@@ -154,4 +158,7 @@ if (CORly == TRUE)
     write.asciigrid(x = playerstack[21], file = "./projection/topo_Slope.asc", na.value = -9999)
     write.asciigrid(x = playerstack[22], file = "./projection/topo_Aspect.asc", na.value = -9999)
     }
+  # Insert code for variable selection
+  # Insert code for model selection
+  # Insert code for AUC calculation
   }
