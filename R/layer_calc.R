@@ -36,6 +36,7 @@ layer_calc <- function(file, header = 6, size = 3, keep,
       .write_asc(file = file, metadata = dat$metadata, layer = result[[i]], 
                  prefix = names(FUN_list)[i])
     }
+    
     # export idm
     .write_asc(file = file, metadata = dat$metadata, layer = idm_result, 
                prefix = "idm_")
@@ -45,7 +46,9 @@ layer_calc <- function(file, header = 6, size = 3, keep,
   # ================ cat starts ==============================
   if (calc == "cat") {  
     
-    FUN_list <- list(H = .ShanonH, J = .PielouJ, NMS = .NMS, Q = .Qstat)
+    FUN_list <- list(H = .ShanonH, J = .PielouJ, 
+                     HxJ = function(x) .ShanonH(x) * .PielouJ(x), 
+                     NMS = .NMS, Q = .Qstat)
     result <- .moving_window(layer = layer, size = size, 
                              FUN_list = FUN_list, keep = keep)
 
@@ -57,12 +60,6 @@ layer_calc <- function(file, header = 6, size = 3, keep,
       .write_asc(file = file, metadata = dat$metadata, layer = result[[i]], 
                  prefix = names(FUN_list)[i])
     }
-
-    # export the product of HxJ
-    result.HJ <- result$H
-    non_na_idx <- which(result$H != -9999)
-    result.HJ[non_na_idx] <- result$H[non_na_idx] * result$J[non_na_idx]
-    .write_asc(file = file, metadata = dat$metadata, layer = result.HJ, prefix = "HJ")
   } 
   # ================ cat ends ================================
 }
