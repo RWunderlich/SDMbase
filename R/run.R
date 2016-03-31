@@ -1,12 +1,16 @@
 require(sp)
 require(raster)
+require(rgdal)
 run <- function(pathmaxent="/home/affu/Desktop/Maxent/", pathproject="/home/affu/Desktop/example/", doproject=0,
 pathlayers="/home/affu/Desktop/Layers/", pathplayers="/home/affu/Desktop/Layers/Players", inputfiles="asc",
-dobgmanip=FALSE, updownbgmanip=0, levelbgmanip=300, inputCRS=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0"),
-outputCRS=CRS("+init=epsg:3975 +proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"),
-projectextent=c(60,110,8.5,46), projectpextent=c(60,110,8.5,46), pathlocations="/home/affu/Desktop/Locations/")
+dobgmanip=FALSE, updownbgmanip=0, levelbgmanip=300, inputCRSdef="+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0",
+outputCRSdef="+init=epsg:3975 +proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0",
+projectextent=c(60,110,8.5,46), projectpextent=c(60,110,8.5,46), pathlocations="/home/affu/Desktop/Locations/", CORly = TRUE)
   {
+  inputCRS=CRS(inputCRSdef)
+  outputCRS=CRS(outputCRSdef)
   # Creating project folder structure
+  dir.create(path = pathproject)
   setwd(dir = pathproject)
   dir.create(path = "./layers/")
   dir.create(path = "./locations/")
@@ -27,26 +31,43 @@ projectextent=c(60,110,8.5,46), projectpextent=c(60,110,8.5,46), pathlocations="
   projectlocations[,2] <- templocationsrp@coords[,2]
   # Reading in, cropping to extent, reprojecting to equal area
   setwd(dir = pathlayers)
-  layerfnames <- c(list.files(path = ".", pattern = "^bio.*\\.asc"), "topo_Elevation.asc")
+  layerfnames <- c(list.files(path = ".", pattern = "^bio_.*\\.asc"), "topo_Elevation.asc")
   layerstack <- stack()
-  NAvalue(layerstack) <- -9999
+#  NAvalue(layerstack) <- -9999 # causing an error in empty stack! commented out
   for (i in 1:(length(layerfnames)-1))
     {
     layerstack[i] <- projectRaster(crop(x = raster(layerfnames[i], crs = inputCRS), y = projectextent), crs = outputCRS)
     }
     layerstack[20] <- resample(x = raster(layerfnames[20]), y = layerstack, method = "bilinear")
-  # Insert code to read in projection layers if.. for i in...
+    NAvalue(layerstack) <- -9999
+# Correlation analysis if TRUE
+if (CORly == TRUE)
+  {
+  setwd(dir = pathproject)
+  #### 1. pearson correlation ####
+  tempdat1<-cor(as.data.frame(layerstack), use="pairwise", method = "pearson")
+  sqrt(mean(tempdat1^2))
+  write.table(as.data.frame(tempdat1),file="./cor_pears.csv",row.names=TRUE,col.names=TRUE,sep=",")
+  
+  #### 2. spearman correlation ####
+  tempdat2<-cor(as.data.frame(predictors), use="pairwise", method = "spearman")
+  sqrt(mean(tempdat2^2))
+  write.table(as.data.frame(tempdat2),file="./cor_spear.csv",row.names=TRUE,col.names=TRUE,sep=",")
+  setwd(dir = pathlayers)
+  }
+
   if (doproject == 1)
     {
     setwd(dir = pathplayers)
     playerfnames <- c(list.files(path = ".", pattern = "^bio.*\\.asc"), "topo_Elevation.asc")
     playerstack <- stack()
-    NAvalue(playerstack) <- -9999
-    for (i in 1:(length(playerfnames)-1)
+    # NAvalue(playerstack) <- -9999 # commented out see above
+    for (i in 1:(length(playerfnames)-1))
       {
       playerstack[i] <- projectRaster(crop(x = raster(playerfnames[i], crs = inputCRS), y = projectextent), crs = outputCRS)
       }
-    playerstack[20] <- resample(x = raster(playerfnames[20]), y = playerstack, method = "bilinear")    
+    playerstack[20] <- resample(x = raster(playerfnames[20]), y = playerstack, method = "bilinear")
+    NAvalue(playerstack) <- -9999
     }
 
   if (doproject == 2)
@@ -54,12 +75,13 @@ projectextent=c(60,110,8.5,46), projectpextent=c(60,110,8.5,46), pathlocations="
     setwd(dir = pathlayers)
     playerfnames <- c(list.files(path = ".", pattern = "^bio.*\\.asc"), "topo_Elevation.asc")
     playerstack <- stack()
-    NAvalue(playerstack) <- -9999
+    # NAvalue(playerstack) <- -9999 # see above
     for (i in 1:(length(playerfnames)-1))
       {
       playerstack[i] <- projectRaster(crop(x = raster(playerfnames[i], crs = inputCRS), y = projectpextent), crs = outputCRS)
       }
     playerstack[20] <- resample(x = raster(playerfnames[20]), y = playerstack, method = "bilinear")
+    NAvalue(playerstack) <- -9999
     }
 
   # Terrain analysis
@@ -88,7 +110,7 @@ projectextent=c(60,110,8.5,46), projectpextent=c(60,110,8.5,46), pathlocations="
       }
     if ((doproject == 1) | (doproject == 2))
       {
-      for (i in 1:(length(playerstack))
+      for (i in 1:(length(playerstack)))
         {
         if (updownbgmanip == 0)
           {
