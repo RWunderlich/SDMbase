@@ -4,12 +4,13 @@ require(rgdal)
 require(ROCR)
 require(vcd)
 require(boot)
-run <- function(pathmaxent="/home/affu/Desktop/Maxent/", pathproject="/home/affu/Desktop/example/", doproject=0,
-pathlayers="/home/affu/Desktop/Layers/", pathplayers="/home/affu/Desktop/Layers/Players", inputfiles="asc",
-dobgmanip=FALSE, updownbgmanip=0, levelbgmanip=300, inputCRSdef="+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0",
-outputCRSdef="+init=epsg:3975 +proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0",
-projectextent=c(60,110,8.5,46), projectpextent=c(60,110,8.5,46), pathlocations="/home/affu/Desktop/Locations/", CORly = TRUE,
-calcAUC = TRUE, AUCbootstrapITER = 10)
+require(SDMTools)
+run <- function(pathmaxent="/home/affu/Desktop/Maxent/", pathproject="/home/affu/Desktop/example/", doproject=0, inputfiles="asc",
+                pathlayers="/home/affu/Desktop/Layers/", pathplayers="/home/affu/Desktop/Layers/Players", pathcoastline="/home/affu/Desktop/coastlines/"
+                dobgmanip=FALSE, updownbgmanip=0, levelbgmanip=300, inputCRSdef="+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0",
+                outputCRSdef="+init=epsg:3975 +proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0",
+                projectextent=c(60,110,8.5,46), projectpextent=c(60,110,8.5,46), pathlocations="/home/affu/Desktop/Locations/", CORly = TRUE,
+                calcAUC = TRUE, AUCbootstrapITER = 10)
   {
   inputCRS=CRS(inputCRSdef)
   outputCRS=CRS(outputCRSdef)
@@ -25,14 +26,18 @@ calcAUC = TRUE, AUCbootstrapITER = 10)
     }
   # Reading and reprojecting location data
   setwd(dir = pathlocations)
-  projectlocations <- read.csv(file = "locations.csv")
-  templocations <- matrix(ncol = 2, nrow = 357)
-  templocations[,1] <- projectlocations$decimallongitude
-  templocations[,2] <- projectlocations$decimallatitude
+  projectlocations <- read.csv(file = "locations.csv", header = FALSE)
+  templocations <- matrix(ncol = 2, nrow = length(V3))
+  templocations[,1] <- projectlocations$V3
+  templocations[,2] <- projectlocations$V2
   templocations <- SpatialPoints(coords = templocations, proj4string = inputCRS)
   templocationsrp <- spTransform(x = templocations, CRSobj = outputCRS)
   projectlocations[,3] <- templocationsrp@coords[,1]
   projectlocations[,2] <- templocationsrp@coords[,2]
+  # Reading in and reprojecting shapefile for coastline clipping
+  setwd(pathcoastline)
+  coastlinein <- readOGR(dsn = ".", layer = coast_continents, p4s = inputCRS)
+  coastlineout <- spTransform(x = coastlinein, CRSobj = outputCRS)
   # Reading in, cropping to extent, reprojecting to equal area
   setwd(dir = pathlayers)
   layerfnames <- c(list.files(path = ".", pattern = "^bio_.*\\.asc"), "topo_Elevation.asc")
@@ -133,30 +138,30 @@ if (CORly == TRUE)
   write.csv(x = projectlocations, file = "./locations/locations.csv", sep = ",")
   for (i in (1:9))
     {
-    write.asciigrid(x = layerstack[i], file = "./layers/bio0,i,.asc", na.value = -9999)
+    writeRaster(x = layerstack[i], file = "./layers/bio0,i,.asc", format = "ascii", NAflag = -9999)
     }
   for (i in (10:19))
     {
-    write.asciigrid(x = layerstack[i], file = "./layers/bio,i,.asc", na.value = -9999)
+    writeRaster(x = layerstack[i], file = "./layers/bio,i,.asc", format = "ascii", NAflag = -9999)
     }
-  write.asciigrid(x = layerstack[20], file = "./layers/topo_Elevation.asc", na.value = -9999)
-  write.asciigrid(x = layerstack[21], file = "./layers/topo_Slope.asc", na.value = -9999)
-  write.asciigrid(x = layerstack[22], file = "./layers/topo_Aspect.asc", na.value = -9999)
+  writeRaster(x = layerstack[20], file = "./layers/topo_Elevation.asc", format = "ascii", NAflag = -9999)
+  writeRaster(x = layerstack[21], file = "./layers/topo_Slope.asc", format = "ascii", NAflag = -9999)
+  writeRaster(x = layerstack[22], file = "./layers/topo_Aspect.asc", format = "ascii", NAflag = -9999)
 
   # Writing projection layers if they exist
   if ((doproject == 1)|(doproject == 2))
     {
     for (i in (1:9))
       {
-      write.asciigrid(x = playerstack[i], file = "./projection/bio0,i,.asc", na.value = -9999)
+      writeRaster(x = playerstack[i], file = "./players/bio0,i,.asc", format = "ascii", NAflag = -9999)
       }
     for (i in (10:19))
       {
-      write.asciigrid(x = playerstack[i], file = "./projection/bio,i,.asc", na.value = -9999)
+      writeRaster(x = playerstack[i], file = "./players/bio,i,.asc", format = "ascii", NAflag = -9999)
       }
-    write.asciigrid(x = playerstack[20], file = "./projection/topo_Elevation.asc", na.value = -9999)
-    write.asciigrid(x = playerstack[21], file = "./projection/topo_Slope.asc", na.value = -9999)
-    write.asciigrid(x = playerstack[22], file = "./projection/topo_Aspect.asc", na.value = -9999)
+  writeRaster(x = playerstack[20], file = "./players/topo_Elevation.asc", format = "ascii", NAflag = -9999)
+  writeRaster(x = playerstack[21], file = "./players/topo_Slope.asc", format = "ascii", NAflag = -9999)
+  writeRaster(x = playerstack[22], file = "./players/topo_Aspect.asc", format = "ascii", NAflag = -9999)
     }
   # Insert code for variable selection
   # Insert code for model selection
