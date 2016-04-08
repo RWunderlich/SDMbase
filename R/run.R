@@ -12,6 +12,7 @@ run <- function(pathmaxent="/home/affu/Desktop/Maxent/", pathproject="/home/affu
                 projectextent=c(60,110,8.5,46), projectpextent=c(60,110,8.5,46), pathlocations="/home/affu/Desktop/Locations/", CORly = TRUE,
                 calcAUC = TRUE, AUCbootstrapITER = 10, clipbycoast = TRUE)
 {
+  
   inputCRS=CRS(inputCRSdef)
   outputCRS=CRS(outputCRSdef)
   # Creating project folder structure
@@ -119,6 +120,7 @@ run <- function(pathmaxent="/home/affu/Desktop/Maxent/", pathproject="/home/affu
         layerstack[i] <- layerstack[i] * (layerstack[20] > levelbgmanip)
       }
     }
+    
     if ((doproject == 1) | (doproject == 2))
     {
       for (i in 1:(length(playerstack)))
@@ -137,11 +139,13 @@ run <- function(pathmaxent="/home/affu/Desktop/Maxent/", pathproject="/home/affu
   
   # Writing the .csv and .asc output files
   setwd(dir = pathproject)
+  # find a way to insert a line at the top of the table "species", "lat", "lon"
   write.csv(x = projectlocations, file = "./locations/locations.csv", sep = ",")
   for (i in (1:9))
   {
     writeRaster(x = layerstack[i], file = "./layers/bio0,i,.asc", format = "ascii", NAflag = -9999)
   }
+  
   for (i in (10:19))
   {
     writeRaster(x = layerstack[i], file = "./layers/bio,i,.asc", format = "ascii", NAflag = -9999)
@@ -151,19 +155,24 @@ run <- function(pathmaxent="/home/affu/Desktop/Maxent/", pathproject="/home/affu
   writeRaster(x = layerstack[22], file = "./layers/topo_Aspect.asc", format = "ascii", NAflag = -9999)
   
   # Writing projection layers if they exist
+  
   if ((doproject == 1)|(doproject == 2))
   {
     for (i in (1:9))
     {
-    writeRaster(x = playerstack[i], file = "./players/bio0,i,.asc", format = "ascii", NAflag = -9999)
-  }
-  for (i in (10:19))
-  {
-    writeRaster(x = playerstack[i], file = "./players/bio,i,.asc", format = "ascii", NAflag = -9999)
-  }
+      writeRaster(x = playerstack[i], file = "./players/bio0,i,.asc", format = "ascii", NAflag = -9999)
+    }
+  
+    for (i in (10:19))
+    {
+      writeRaster(x = playerstack[i], file = "./players/bio,i,.asc", format = "ascii", NAflag = -9999)
+    }
+  
   writeRaster(x = playerstack[20], file = "./players/topo_Elevation.asc", format = "ascii", NAflag = -9999)
   writeRaster(x = playerstack[21], file = "./players/topo_Slope.asc", format = "ascii", NAflag = -9999)
   writeRaster(x = playerstack[22], file = "./players/topo_Aspect.asc", format = "ascii", NAflag = -9999)
+  }
+  
   # Insert code for variable selection
   # 1st if there is at least one variable with a gloabal correlation greater than 0.85 in either PEAR or SPEAR, remove the one with the highest correlation
   # 2nd recalculate global correlations after above removal and again remove the variable with the highest global correlation if R>0.85
@@ -171,4 +180,5 @@ run <- function(pathmaxent="/home/affu/Desktop/Maxent/", pathproject="/home/affu
   
   # Insert code for model selection
   # Insert code for AUC calculation
+
 }
