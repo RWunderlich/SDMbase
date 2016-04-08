@@ -5,12 +5,12 @@ require(ROCR)
 require(vcd)
 require(boot)
 require(SDMTools)
-inputCRSdef="+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0"
-outputCRSdef="+init=epsg:3975 +proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"
+
 run <- function(pathmaxent="/home/affu/Desktop/Maxent/", pathproject="/home/affu/Desktop/example/", doproject=0, inputfiles="asc", pathlayers="/home/affu/Desktop/Layers/",
                 pathplayers="/home/affu/Desktop/Layers/Players", pathcoastline="/home/affu/Desktop/coastlines/", dobgmanip=FALSE, updownbgmanip=0, levelbgmanip=300,
                 projectextent=c(60,110,8.5,46), projectpextent=c(60,110,8.5,46), pathlocations="/home/affu/Desktop/Locations/", CORly = TRUE, calcAUC = TRUE,
-                AUCbootstrapITER = 10, clipbycoast = TRUE)
+                AUCbootstrapITER = 10, clipbycoast = TRUE, inputCRSdef="+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0",
+                outputCRSdef="+init=epsg:3975 +proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0")
 {
   
   inputCRS=CRS(inputCRSdef)
@@ -38,7 +38,7 @@ run <- function(pathmaxent="/home/affu/Desktop/Maxent/", pathproject="/home/affu
   projectlocations[,2] <- templocationsrp@coords[,2]
   # Reading in and reprojecting shapefile
   setwd(pathcoastline)
-  coastlinein <- readOGR(dsn = ".", layer = coast_continents, p4s = inputCRS)
+  coastlinein <- readOGR(dsn = "./", layer = "coast_continents", p4s = NULL)
   coastlineout <- spTransform(x = coastlinein, CRSobj = outputCRS)
   # Reading in, cropping to extent, reprojecting to equal area
   setwd(dir = pathlayers)
