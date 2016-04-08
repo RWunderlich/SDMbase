@@ -48,8 +48,10 @@ run <- function(pathmaxent="/home/affu/Desktop/Maxent/", pathproject="/home/affu
   for (i in 1:(length(layerfnames)-1))
   {
     layerstack[i] <- projectRaster(crop(x = raster(layerfnames[i], crs = inputCRS), y = projectextent), crs = outputCRS, res = 1000)
+    layerstack[i] <- mask(layerstack[i], coastlineout)
   }
   layerstack[20] <- resample(x = raster(layerfnames[20]), y = layerstack, method = "bilinear")
+  layerstack[20] <- mask(layerstack[20], coastlineout)
   NAvalue(layerstack) <- -9999
   # Correlation analysis if TRUE
   if (CORly == TRUE)
@@ -76,9 +78,10 @@ run <- function(pathmaxent="/home/affu/Desktop/Maxent/", pathproject="/home/affu
     for (i in 1:(length(playerfnames)-1))
     {
       playerstack[i] <- projectRaster(crop(x = raster(playerfnames[i], crs = inputCRS), y = projectextent), crs = outputCRS)
-      playerstack[i] <- gIntersection(playerstack[i], coastlineout, byid = FALSE)
+      playerstack[i] <- mask(layerstack[i], coastlineout)
     }
     playerstack[20] <- resample(x = raster(playerfnames[20]), y = playerstack, method = "bilinear")
+    playerstack[20] <- mask(layerstack[20], coastlineout)
     NAvalue(playerstack) <- -9999
   }
   
@@ -91,8 +94,10 @@ run <- function(pathmaxent="/home/affu/Desktop/Maxent/", pathproject="/home/affu
     for (i in 1:(length(playerfnames)-1))
     {
       playerstack[i] <- projectRaster(crop(x = raster(playerfnames[i], crs = inputCRS), y = projectpextent), crs = outputCRS)
+      playerstack[i] <- mask(layerstack[i], coastlineout)
     }
     playerstack[20] <- resample(x = raster(playerfnames[20]), y = playerstack, method = "bilinear")
+    layerstack[20] <- mask(layerstack[20], coastlineout)
     NAvalue(playerstack) <- -9999
   }
   
