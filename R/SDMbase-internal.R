@@ -1,5 +1,17 @@
 #' @keywords internal 
 
+# =======================================================================================
+# Requirements
+# =======================================================================================
+require(sp)
+require(raster)
+require(rgdal)
+require(rgbif)
+require(KernSmooth)
+# =======================================================================================
+# Functions
+# =======================================================================================
+
 # read_asc
 .read_asc <- function(file, header = 6) {
   
@@ -153,7 +165,7 @@
 
 # =======================================================================================
 
-## calculate Q statistics
+# calculate Q statistics
 .Qstat <- function(window, nodata = -9999) {
   x <- .presence_matrix(window, nodata = nodata)
   S <- length(x) # total type number
@@ -171,3 +183,109 @@
     Q <- NA
   return(Q)
 }
+
+# =======================================================================================
+# The remainder of this file contains functions used to prepare the data for annd
+# to run maxent
+# =======================================================================================
+
+# retrieve zipped bioclim data and unzip it
+.retrieveBio <- function(rBurl1 = "http://biogeo.ucdavis.edu/data/climate/worldclim/1_4/grid/cur/bio1-9_30s_bil.zip", rBurl2 = "http://biogeo.ucdavis.edu/data/climate/worldclim/1_4/grid/cur/bio10-19_30s_bil.zip", rBmethod = "internal", rBdest = "./SDMbaserawraster/") {
+  dir.create(path = rBdest)
+  download.file(url = rBurl1,   destfile = paste0(rBdest,"bio1-9_30s_bil.zip"), method =  rBmethod)
+  download.file(url = rBurl2,   destfile = paste0(rBdest,"bio10-19_30s_bil.zip"), method =  rBmethod)
+  unzip(zipfile = paste0(rBdest,"bio1-9_30s_bil.zip"), exdir = rBdest)
+  unzip(zipfile = paste0(rBdest,"bio10-19_30s_bil.zip"), exdir = rBdest)
+  file.remove(paste0(rbdest,"bio1-9_30s_bil.zip"), paste0(rbdest,"bio10-19_30s_bil.zip"))
+}
+
+# =======================================================================================
+
+# Read in, crop, reproject, mask and write the raster
+.prepareRaster <- function(pRsource = "./SDMbaserawraster/", pRtype = "bil", pRinputCRSdef = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0", pRoutputCRSdef = "+init=epsg:3975 +proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0", pRmasksource = NULL, pRmaskfname = NULL, pRmaskCRS = NULL, pRresolution = 1000, pRdest = "./example/Layers/") {
+
+  inputCRS <- CRS(pRinputCRSdef)
+  outputCRS <- CRS(pRoutputCRSdef)
+  if (pRtype == "bil") {
+  layerfnames <- list.files(path = pRsource, pattern = "^bio.*\\.bil")
+  }
+  if (pRtype == "grd") {
+  layerfnames <- list.files(path = pRsource, pattern = "^bio.*\\.grd")
+  }
+  if (pRtype == "asc") {
+  layerfnames <- list.files(path = pRsource, pattern = "^bio.*\\.asc")
+  }
+
+ # Correct the order of files
+  layerfnames <- layerfnames[order(as.numeric(sub("([0-9]*).*", "\\1", layerfnames)))]
+  
+  layerstack <- stack()
+  for (i in 1:length(layerfnames)) {
+    layerstack <- addLayers(layerstack, projectRaster(crop(x = raster(layerfnames[i], crs = inputCRS), y = projectextent), crs = outputCRS, res = pRresolution))
+  }
+  if (pRmaskfname != NULL) {
+  coastlinein <- readOGR(dsn = pRmasksource, layer = pRmaskfname, p4s = pRmaskCRS)
+  coastlineout <- spTransform(x = coastlinein, CRSobj = outputCRS)
+  layerstack <- mask(layerstack, coastlineout)
+  }
+  NAvalue(layerstack) <- -9999
+ # Write the asc files
+  for (i in (1:length(layerfnames))) {
+    writeRaster(x = paste0("layerstack$bio",i), file = paste0(pRdest, "bio", i), format = "ascii", NAflag = -9999)
+  }
+}
+
+# =======================================================================================
+# Reproject locations and write locations file if required. file is required to be without any header and in the format: species, declon, declat
+
+.rLocations <- function (rLsource = "./", rLfname = "locations.csv", rLinputCRSdef = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0", rLoutputCRSdef = "+init=epsg:3975 +proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0", rLwritefile = TRUE) {
+  inputCRS <- CRS(rLinputCRSdef)
+  outputCRS <- CRS(rLoutputCRSdef)
+  rLlocations <- base::unique(read.csv(file = paste0(rLsource, rLfname), header = FALSE))
+  templocations <- matrix(ncol = 2, nrow = length(rLlocations$V3))
+  templocations[,1] <- rLlocations$V2
+  templocations[,2] <- rLlocations$V3
+  templocations <- SpatialPoints(coords = templocations, proj4string = inputCRS)
+  templocationsrp <- spTransform(x = templocations, CRSobj = outputCRS)
+  rLlocations[,2] <- templocationsrp@coords[,1]
+  rLlocations[,3] <- templocationsrp@coords[,2]
+  if (rLwritefile == TRUE) {
+    write.csv(x = rLlocations, file = paste0(rLsource, "projlocations.csv"), sep = ",")
+  }
+}
+
+# =======================================================================================
+
+# Create a bias file for Maxent based on presence, absence and presence and absence of similar genera to factor out sampling bias
+
+.createBiasfile <- function(cBsource = "./Locations/", cBfname = "samplinglocations.csv", cBinputCRSdef = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0", cBoutputCRSdef = "+init=epsg:3975 +proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0", cBbwidth = 100000, cBrange = NULL, cBtemplatesource = "./", cBtemplatefname = "template.asc", Bsimilar = NULL, cBgeometry = NULL) {
+  inputCRS <- CRS(cBinputCRSdef)
+  outputCRS <- CRS(cBoutputCRSdef)
+  cBrecords <- base::unique(read.csv(paste0(cBsource, cBfname))) # file containing all presences, absences and more data of similar species. genus, declon
+  if (cBsimilar != NULL) {
+  cBkeys <- sapply(cBsimilar, function(x) name_suggest(x, rank = "genus")$key[1], USE.NAMES=FALSE)
+  cBaddrecords <- occ_search(taxonKey = cBkeys, hasCoordinate = TRUE, hasGeospatialIssue = FALSE, geometry = cBgeometry, year = paste0("1959,", format(Sys.Date(), "%Y")), fields = "minimal", return = "data")
+  }
+  # how to combine to data frames? rbind!
+  cBrecords <- rbind(matrix(cBrecords), matrix(cBaddrecords))
+  templocations <- matrix(ncol = 2, nrow = length(cBrecords$V3))
+  templocations[,1] <- cBrecords[,2]
+  templocations[,2] <- cBrecords[,3]
+  templocations <- SpatialPoints(coords = templocations, proj4string = inputCRS)
+  templocations <- spTransform(x = templocations, CRSobj = outputCRS)
+
+  template <- raster(x = paste0(cBtemplatesource, cBtemplatefname), crs = outputCRS)
+  cBrange <- list( c(xyFromCell(template, cell = c(ncell(template) - (ncol(template)-1)))[1], xyFromCell(template, cell = c(ncell(template) - (ncol(template)-1)))[2]), c(xyFromCell(template, cell = ncol(template))[1], xyFromCell(template, cell = ncol(template))[2]))
+  est <- bkde2D(templocations@coords, bandwidth=c(cBwidth,cBwidth), gridsize = c(paste0(template@ncols,"L"), paste0(template@nrows,"L")), range.x = cBrange, truncate = FALSE)
+  est.raster <- raster(list(x=est$x1,y=est$x2,z=est$fhat))
+  est.raster@crs <- outputCRS
+  est.raster@extent <- template@extent
+  est.raster <- (est.raster - cellStats(est.raster, min))/(cellStats(est.raster,max)-cellStats(est.raster,min)) # normalization or feature scaling LATER make sure to reuse Jin's code above!
+  est.raster <- (est.raster * 19.999) + 0.001 # scale with aaalmost 20 and add 0.001 to fullfill maxent demands of non zero non negative
+  est.raster <- mask(x = est.raster, mask = template) #template is any raster ready for maxent use
+  writeRaster(x = est.raster, filename = paste0(cBsource,"biasraster.asc"), format = "ascii", NAflag = -9999)
+}
+
+# =======================================================================================
+# End of file
+# =======================================================================================
