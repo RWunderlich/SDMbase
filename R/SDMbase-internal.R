@@ -8,6 +8,8 @@ require(raster)
 require(rgdal)
 require(rgbif)
 require(KernSmooth)
+require(doParallel) #use multi-core capabilities to speed up big computations
+require(doParallel) #use multi-core capabilities to speed up big computations
 # =======================================================================================
 # Functions
 # =======================================================================================
@@ -200,9 +202,8 @@ require(KernSmooth)
 }
 
 # =======================================================================================
-
 # Read in, crop, reproject, mask and write the raster
-.prepareRaster <- function(pRsource = "./SDMbaserawraster/", pRtype = "bil", pRinputCRSdef = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0", pRoutputCRSdef = "+init=epsg:3975 +proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0", pRmasksource = NULL, pRmaskfname = NULL, pRmaskCRS = NULL, pRresolution = 1000, pRdest = "./example/Layers/") {
+.prepareRaster <- function(pRsource = "./SDMbaserawraster/", pRtype = "bil", pRinputCRSdef = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0", pRoutputCRSdef = "+init=epsg:3975 +proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0", pRmasksource = "./", pRmaskfname = "fname",pRmask = FALSE, pRmaskCRS = NULL, pRresolution = 1000, pRdest = "./example/Layers/") {
 
   inputCRS <- CRS(pRinputCRSdef)
   outputCRS <- CRS(pRoutputCRSdef)
@@ -218,12 +219,10 @@ require(KernSmooth)
 
  # Correct the order of files
   layerfnames <- layerfnames[order(as.numeric(sub("([0-9]*).*", "\\1", layerfnames)))]
-  
-  layerstack <- stack()
   for (i in 1:length(layerfnames)) {
-    layerstack <- addLayers(layerstack, projectRaster(crop(x = raster(layerfnames[i], crs = inputCRS), y = projectextent), crs = outputCRS, res = pRresolution))
+    layerstack <- addLayer(layerstack, projectRaster(crop(x = raster(layerfnames[i], crs = inputCRS), y = projectextent), crs = outputCRS, res = pRresolution))
   }
-  if (pRmaskfname != NULL) {
+  if (pRmask == TRUE) {
   coastlinein <- readOGR(dsn = pRmasksource, layer = pRmaskfname, p4s = pRmaskCRS)
   coastlineout <- spTransform(x = coastlinein, CRSobj = outputCRS)
   layerstack <- mask(layerstack, coastlineout)
@@ -233,6 +232,44 @@ require(KernSmooth)
   for (i in (1:length(layerfnames))) {
     writeRaster(x = paste0("layerstack$bio",i), file = paste0(pRdest, "bio", i), format = "ascii", NAflag = -9999)
   }
+}
+
+# =======================================================================================
+# Read in, crop, reproject, mask and write the raster with 2 or more cores 
+.prepareRasterMC <- function(pRsource = "./SDMbaserawraster/", pRtype = "bil", pRinputCRSdef = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0", pRoutputCRSdef = "+init=epsg:3975 +proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0", pRmasksource = "./", pRmaskfname = "fname", pRmask = FALSE, pRresolution = 1000, pRdest = "./example/Layers/", ncores = 2) {
+    
+    inputCRS <- CRS(pRinputCRSdef)
+    outputCRS <- CRS(pRoutputCRSdef)
+    if (pRtype == "bil") {
+        layerfnames <- list.files(path = pRsource, pattern = "^bio.*\\.bil")
+    }
+    if (pRtype == "grd") {
+        layerfnames <- list.files(path = pRsource, pattern = "^bio.*\\.grd")
+    }
+    if (pRtype == "asc") {
+        layerfnames <- list.files(path = pRsource, pattern = "^bio.*\\.asc")
+    }
+    
+    # Correct the order of files
+    layerfnames <- layerfnames[order(as.numeric(sub("([0-9]*).*", "\\1", layerfnames)))]
+    layerstack <- stack()
+    #setup multicore cluster 
+    tempclust <- makeCluster(ncores)
+    registerDoParallel(tempclust)
+    # running multicore code
+    foreach (i = 1:length(layerfnames)) %dopar% {layerstack <- addLayer(layerstack, projectRaster(crop(x = raster(layerfnames[i], crs = inputCRS), y = projectextent), crs = outputCRS, res = pRresolution))}
+    
+    if (pRmask == TRUE) {
+        coastlinein <- readOGR(dsn = pRmasksource, layer = pRmaskfname, p4s = inputCRS)
+        coastlineout <- spTransform(x = coastlinein, CRSobj = outputCRS)
+        layerstack <- mask(layerstack, coastlineout)
+    }
+    NAvalue(layerstack) <- -9999
+    # Write the asc files
+    foreach (i = 1:length(layerfnames)) %dopar% {
+        writeRaster(x = paste0("layerstack$bio",i), file = paste0(pRdest, "bio", i), format = "ascii", NAflag = -9999)
+    }
+    stopCluster(tempclust)
 }
 
 # =======================================================================================
@@ -255,18 +292,17 @@ require(KernSmooth)
 }
 
 # =======================================================================================
-
 # Create a bias file for Maxent based on presence, absence and presence and absence of similar genera to factor out sampling bias
 
 .createBiasfile <- function(cBsource = "./Locations/", cBfname = "samplinglocations.csv", cBinputCRSdef = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0", cBoutputCRSdef = "+init=epsg:3975 +proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0", cBbwidth = 100000, cBrange = NULL, cBtemplatesource = "./", cBtemplatefname = "template.asc", Bsimilar = NULL, cBgeometry = NULL) {
   inputCRS <- CRS(cBinputCRSdef)
   outputCRS <- CRS(cBoutputCRSdef)
-  cBrecords <- base::unique(read.csv(paste0(cBsource, cBfname))) # file containing all presences, absences and more data of similar species. genus, declon
+  cBrecords <- base::unique(read.csv(paste0(cBsource, cBfname))) # file containing all presences, absences and more data of similar species. genus, declon, declat
   if (cBsimilar != NULL) {
   cBkeys <- sapply(cBsimilar, function(x) name_suggest(x, rank = "genus")$key[1], USE.NAMES=FALSE)
   cBaddrecords <- occ_search(taxonKey = cBkeys, hasCoordinate = TRUE, hasGeospatialIssue = FALSE, geometry = cBgeometry, year = paste0("1959,", format(Sys.Date(), "%Y")), fields = "minimal", return = "data")
   }
-  # how to combine to data frames? rbind!
+  # how to combine two data frames? rbind!
   cBrecords <- rbind(matrix(cBrecords), matrix(cBaddrecords))
   templocations <- matrix(ncol = 2, nrow = length(cBrecords$V3))
   templocations[,1] <- cBrecords[,2]
@@ -285,6 +321,9 @@ require(KernSmooth)
   est.raster <- mask(x = est.raster, mask = template) #template is any raster ready for maxent use
   writeRaster(x = est.raster, filename = paste0(cBsource,"biasraster.asc"), format = "ascii", NAflag = -9999)
 }
+
+# =======================================================================================
+# Run maxent within R
 
 # =======================================================================================
 # End of file
