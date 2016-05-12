@@ -72,7 +72,7 @@ require(doParallel) #use multi-core capabilities to speed up big computations
 # =======================================================================================
 
 # alternative normalisation using existing packages x is raster, y is desired levels ie. the multiplicator after 0..1
-.norm.raster <- function(x, y) ((x - cellStats(x, min)) / diff(cellStats(x, range))) * y
+.norm.raster <- function(x, y) round(((x - cellStats(x, min)) / diff(cellStats(x, range))) * y)
 
 # moving window algorithm
 .moving_window <- function(layer, size, FUN_list, keep) {
