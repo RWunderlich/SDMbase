@@ -15,15 +15,16 @@ layer_calc <- function(file, header = 6, size = 3, keep,
 
     # idm is calculated using glcm package directly... 
     # ... using its built-in window algorithm 
+    require(moments)
     require(glcm)
     idm_result <- glcm(layer, n_grey = length(levels(as.factor(c(layer)))) - 1, 
                        window = c(size, size), statistics = "homogeneity", 
                        na_val = -9999, na_opt = "center")
     
     # moving window calc
-    FUN_list <- list(sd = sd, 
-                     vmr = function(x) {var(x) / prod(x) ^ (1/length(x))},
-                     mad = mad)
+    FUN_list <- list(# sd = sd, replaced by more robust mad
+                     # vmr = function(x) {var(x) / prod(x) ^ (1/length(x))}, # causing probs - heal later
+                     mad = mad, skew = skewness) # skew replaces J
     result <- .moving_window(layer = layer, size = size, 
                              FUN_list = FUN_list, keep = keep)
     
@@ -46,8 +47,8 @@ layer_calc <- function(file, header = 6, size = 3, keep,
   # ================ cat starts ==============================
   if (calc == "cat") {  
     
-    FUN_list <- list(H = .ShanonH, J = .PielouJ, 
-                     HxJ = function(x) .ShanonH(x) * .PielouJ(x), 
+    FUN_list <- list(H = .ShanonH, # J = .PielouJ, # substituted by skewness in cont
+                     # HxJ = function(x) .ShanonH(x) * .PielouJ(x), J no longer present
                      NMS = .NMS, Q = .Qstat)
     result <- .moving_window(layer = layer, size = size, 
                              FUN_list = FUN_list, keep = keep)
