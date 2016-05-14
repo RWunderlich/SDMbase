@@ -148,13 +148,13 @@ require(doParallel) #use multi-core capabilities to speed up big computations
 # =======================================================================================
 
 # calculate Pielou's Evenness
-.PielouJ <- function(window, nodata = -9999) {
-  H <- .ShanonH(window = window, nodata = nodata)
-  x <- .presence_matrix(window, nodata = nodata)
-  S <- length(x) # total type number
-  J <- H / log(S)
-  return(J)
-}
+#.PielouJ <- function(window, nodata = -9999) {
+#  H <- .ShanonH(window = window, nodata = nodata)
+#  x <- .presence_matrix(window, nodata = nodata)
+#  S <- length(x) # total type number
+#  J <- H / log(S)
+#  return(J)
+#}
 
 # =======================================================================================
 
@@ -164,8 +164,9 @@ require(doParallel) #use multi-core capabilities to speed up big computations
   x <- .presence_matrix(window, nodata = nodata)
   N <- sum(x)
   S <- length(x)
-  R <- order(x, decreasing = TRUE) 
-  NMS <- N * (S + 1) / 2 - sum(R * x)  
+  R <- rank(-x, na.last = NA, ties.method = "average")
+  NMS <- ((N * (S + 1)) / 2) - sum(R * x) # corrected formula, now values are zero or positive
+  return(NMS)
 }
 
 # =======================================================================================
